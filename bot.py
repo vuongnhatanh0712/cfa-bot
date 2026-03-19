@@ -571,13 +571,11 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 def setup_scheduler(app: Application):
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
     scheduler.add_job(
-        lambda: asyncio.create_task(send_daily_question(app)),
+        lambda: asyncio.ensure_future(send_daily_question(app)),
         trigger="cron",
         hour=8,
         minute=0,
     )
-    scheduler.start()
-    logger.info("Scheduler started: daily question at 8:00 AM GMT+7")
     return scheduler
 
 
@@ -598,7 +596,13 @@ def main():
     app.add_handler(CallbackQueryHandler(cb_answer, pattern="^ans:"))
     app.add_handler(CallbackQueryHandler(cb_next, pattern="^next:"))
 
-    setup_scheduler(app)
+    scheduler = setup_scheduler(app)
+
+    async def post_init(application):
+        scheduler.start()
+        logger.info("Scheduler started: daily question at 8:00 AM GMT+7")
+
+    app.post_init = post_init
 
     logger.info("Bot starting...")
     app.run_polling(drop_pending_updates=True)
